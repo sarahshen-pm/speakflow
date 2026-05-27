@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeakFlow — English Pronunciation Trainer</title>
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">SpeakFlow <span>Pronunciation Trainer</span></div>
+  <div class="header-stats">
+    <div class="stat-pill">Sentences: <strong id="stat-total">0</strong></div>
+    <div class="stat-pill">Completed: <strong id="stat-done">0</strong></div>
+    <div class="stat-pill" id="avg-score-pill" style="display:none">Avg Score: <strong id="stat-avg">—</strong></div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+    <div class="panel-header">
+      <div class="panel-title">Input Text</div>
+      <p>Paste or type English text. It will be split into practice sentences.</p>
+    </div>
+    <textarea id="input-text" placeholder="e.g.&#10;I went to the park yesterday. The weather was beautiful. I met an old friend there, and we talked for hours about life and memories."></textarea>
+    <div class="left-footer">
+      <button class="btn-primary" onclick="processText()">⇒ Generate Practice</button>
+      <button class="btn-secondary" onclick="loadSample()">Load Sample Text</button>
+      <div class="tip-row">
+        <span class="tip-tag">TIP</span>
+        <span>Click any word after scoring to see its definition</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="right-toolbar">
+      <span class="toolbar-label">Progress</span>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="score-badge" id="overall-score-badge" style="display:none">Overall: <span id="overall-score">—</span></div>
+      <button class="btn-replay" id="btn-read-all" style="display:none" onclick="readAll()">▶ Read All</button>
+    </div>
+
+    <div class="sentences-container" id="sentences-container">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">🎙</div>
+        <h3>Start Practicing</h3>
+        <p>Type or paste English text on the left, then click Generate Practice to begin your speaking session.</p>
+      </div>
+    </div>
+
+    <div class="legend" id="legend" style="display:none">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Accurate</div>
+      <div class="legend-sep"></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Close</div>
+      <div class="legend-sep"></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Needs work</div>
+      <div class="legend-sep"></div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Missed</div>
+      <div class="legend-sep"></div>
+      <span style="font-size:0.7rem;color:var(--text3)">Click any word for definition</span>
+    </div>
+  </div>
+</div>
+
+<!-- Word Modal -->
+<div class="modal-overlay" id="word-modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeWordModal()">✕</button>
+    <div class="modal-word" id="modal-word-text"></div>
+    <div class="modal-phonetic">
+      <span id="modal-phonetic-text"></span>
+      <button class="modal-play-btn" onclick="speakWord()">▶ Play</button>
+    </div>
+    <div class="modal-divider"></div>
+    <div class="modal-section-label">Definition</div>
+    <div class="modal-def" id="modal-def-text"></div>
+    <div class="modal-section-label">Example</div>
+    <div class="modal-example" id="modal-example-text"></div>
+  </div>
+</div>
+
+<script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+<script type="module" src="./src/main.js?v=20260514-single-delegated-native"></script>
+</body>
+</html>

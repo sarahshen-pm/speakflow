@@ -1,0 +1,17 @@
+# Dependencies and generated output
+node_modules/
+.wrangler/
+dist/
+coverage/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+src/config.local.js
+
+# OS metadata
+.DS_Store
