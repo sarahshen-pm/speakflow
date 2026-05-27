@@ -15,7 +15,12 @@
       <span>speakflow</span>
     </button>
     <div class="nav-tagline">Practice. Improve. Speak with Confidence.</div>
-    <button class="nav-action" type="button" onclick="openPractice()">Start practicing</button>
+    <div class="nav-controls">
+      <span class="account-label is-hidden" id="home-account-label"></span>
+      <button class="nav-action" id="home-auth-button" type="button" onclick="openAuthModal('login')">Sign in</button>
+      <button class="nav-action is-hidden" id="home-logout-button" type="button" onclick="signOut()">Log out</button>
+      <button class="nav-action primary" type="button" onclick="openPractice()">Start practicing</button>
+    </div>
   </nav>
 
   <main class="landing-content">
@@ -91,6 +96,9 @@
       <div class="stat-pill">Sentences <strong id="stat-total">0</strong></div>
       <div class="stat-pill">Completed <strong id="stat-done">0</strong></div>
       <div class="stat-pill" id="avg-score-pill" style="display:none">Avg Score <strong id="stat-avg">—</strong></div>
+      <span class="account-label is-hidden" id="trainer-account-label"></span>
+      <button class="nav-action" id="trainer-auth-button" type="button" onclick="openAuthModal('login')">Sign in</button>
+      <button class="nav-action is-hidden" id="trainer-logout-button" type="button" onclick="signOut()">Log out</button>
       <button class="nav-action subtle" type="button" onclick="showHome()">Home</button>
     </div>
   </header>
@@ -106,6 +114,7 @@
       <div class="left-footer">
         <button class="btn-primary" onclick="processText()">Generate Practice</button>
         <button class="btn-secondary" onclick="loadSample()">Try a Sample Text</button>
+        <p class="save-status" id="content-save-status">Sign in to save your latest practice text.</p>
         <div class="tip-row">
           <span class="tip-tag">TIP</span>
           <span>Click any scored word to view its definition</span>
@@ -142,6 +151,23 @@
   </div>
 </section>
 
+<!-- Account Modal -->
+<div class="modal-overlay" id="auth-modal" onclick="closeAuthModal(event)">
+  <form class="auth-box" id="auth-form">
+    <button class="modal-close" type="button" onclick="closeAuthModal()">✕</button>
+    <p class="eyebrow">Your Account</p>
+    <h2 id="auth-title">Sign in to SpeakFlow</h2>
+    <p class="auth-intro">Save your practice text securely and resume your most recent session on your next visit.</p>
+    <label class="field-label" for="auth-email">Email</label>
+    <input class="field-input" id="auth-email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+    <label class="field-label" for="auth-password">Password</label>
+    <input class="field-input" id="auth-password" name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required placeholder="At least 8 characters">
+    <p class="auth-error" id="auth-error" role="alert"></p>
+    <button class="btn-primary auth-submit" id="auth-submit" type="submit">Sign in</button>
+    <p class="auth-switch"><span id="auth-switch-copy">New to SpeakFlow?</span> <button type="button" id="auth-switch-button" onclick="switchAuthMode()">Create an account</button></p>
+  </form>
+</div>
+
 <!-- Word Modal -->
 <div class="modal-overlay" id="word-modal" onclick="closeModal(event)">
   <div class="modal-box">
@@ -160,6 +186,6 @@
 </div>
 
 <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
-<script type="module" src="./src/main.js?v=20260527-landing"></script>
+<script type="module" src="./src/main.js?v=20260527-account"></script>
 </body>
 </html>

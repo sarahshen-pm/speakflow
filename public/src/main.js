@@ -1,5 +1,15 @@
 import { SAMPLE_TEXT, wordDB } from './modules/data.js';
 import { getSpeechCredentials } from './modules/speechConfig.js';
+import {
+  getCurrentUser,
+  login as loginAccount,
+  logout as logoutAccount,
+  register as registerAccount
+} from './modules/auth.js';
+import {
+  loadRecentContent,
+  saveRecentContent as persistRecentContent
+} from './modules/contentStore.js';
 
 let sentences = [];
 let scores = [];
@@ -23,6 +33,9 @@ let totalDone = 0;
 let readAllTimer = null;
 let isFinalizingAssessment = false;
 let countdownTimer = null;
+let currentUser = null;
+let authMode = 'login';
+let saveRequestId = 0;
 
 function openPractice(focusInput = false) {
   document.getElementById('landing-page').classList.add('is-hidden');
@@ -44,6 +57,148 @@ function loadSample() {
   document.getElementById('input-text').value = SAMPLE_TEXT;
 }
 
+function setSaveStatus(message, type = '') {
+  const el = document.getElementById('content-save-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `save-status ${type}`.trim();
+}
+
+function updateAccountUi() {
+  ['home', 'trainer'].forEach(location => {
+    const account = document.getElementById(`${location}-account-label`);
+    const authButton = document.getElementById(`${location}-auth-button`);
+    const logoutButton = document.getElementById(`${location}-logout-button`);
+    if (currentUser) {
+      account.textContent = currentUser.email;
+      account.classList.remove('is-hidden');
+      authButton.classList.add('is-hidden');
+      logoutButton.classList.remove('is-hidden');
+    } else {
+      account.textContent = '';
+      account.classList.add('is-hidden');
+      authButton.classList.remove('is-hidden');
+      logoutButton.classList.add('is-hidden');
+    }
+  });
+  setSaveStatus(
+    currentUser ? 'Your latest generated text is saved to your account.' : 'Sign in to save your latest practice text.'
+  );
+}
+
+async function restoreRecentText(autoStart = false) {
+  if (!currentUser) return;
+  try {
+    const content = await loadRecentContent();
+    if (!content?.text) return;
+    const input = document.getElementById('input-text');
+    if (input.value.trim()) return;
+    input.value = content.text;
+    setSaveStatus('Restored your most recent practice text.', 'success');
+    if (autoStart) {
+      openPractice();
+      processText({ skipSave: true });
+    }
+  } catch (error) {
+    setSaveStatus(error.message, 'error');
+  }
+}
+
+async function savePracticeText(text) {
+  if (!currentUser) return;
+  const requestId = ++saveRequestId;
+  setSaveStatus('Saving your latest practice text...');
+  try {
+    await persistRecentContent(text);
+    if (requestId === saveRequestId) {
+      setSaveStatus('Saved. This text will be ready next time you sign in.', 'success');
+    }
+  } catch (error) {
+    if (requestId === saveRequestId) {
+      setSaveStatus(error.message, 'error');
+    }
+  }
+}
+
+function openAuthModal(mode = 'login') {
+  authMode = mode;
+  renderAuthMode();
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-form').reset();
+  document.getElementById('auth-modal').classList.add('open');
+  document.getElementById('auth-email').focus();
+}
+
+function renderAuthMode() {
+  const registering = authMode === 'register';
+  document.getElementById('auth-title').textContent = registering ? 'Create your account' : 'Sign in to SpeakFlow';
+  document.getElementById('auth-submit').textContent = registering ? 'Create account' : 'Sign in';
+  document.getElementById('auth-switch-copy').textContent = registering ? 'Already have an account?' : 'New to SpeakFlow?';
+  document.getElementById('auth-switch-button').textContent = registering ? 'Sign in' : 'Create an account';
+  document.getElementById('auth-password').autocomplete = registering ? 'new-password' : 'current-password';
+}
+
+function switchAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-error').textContent = '';
+  renderAuthMode();
+}
+
+function closeAuthModal(event) {
+  const modal = document.getElementById('auth-modal');
+  if (!event || event.target === modal) modal.classList.remove('open');
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  const button = document.getElementById('auth-submit');
+  const errorEl = document.getElementById('auth-error');
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  button.disabled = true;
+  errorEl.textContent = '';
+  try {
+    currentUser = authMode === 'register'
+      ? await registerAccount(email, password)
+      : await loginAccount(email, password);
+    closeAuthModal();
+    updateAccountUi();
+    const input = document.getElementById('input-text');
+    if (input.value.trim()) {
+      openPractice();
+      await savePracticeText(input.value.trim());
+    } else {
+      await restoreRecentText(true);
+      openPractice();
+    }
+  } catch (error) {
+    errorEl.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function signOut() {
+  try {
+    await logoutAccount();
+  } finally {
+    currentUser = null;
+    updateAccountUi();
+  }
+}
+
+async function initializeAccount() {
+  try {
+    currentUser = await getCurrentUser();
+  } catch {
+    currentUser = null;
+  }
+  updateAccountUi();
+  if (currentUser) {
+    await restoreRecentText(true);
+  }
+}
+
 function splitSentences(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return [];
@@ -58,7 +213,7 @@ function splitSentences(text) {
     .filter(sentence => sentence && /[A-Za-z]/.test(sentence));
 }
 
-function processText() {
+function processText({ skipSave = false } = {}) {
   const text = document.getElementById('input-text').value.trim();
   if (!text) return;
   stopCurrentActivity();
@@ -78,6 +233,9 @@ function processText() {
   document.getElementById('btn-read-all').style.display = 'inline-block';
   updateProgress();
   updateAvgScore();
+  if (currentUser && !skipSave) {
+    savePracticeText(text);
+  }
 }
 
 function renderSentences() {
@@ -1288,8 +1446,13 @@ function closeWordModal() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeWordModal();
+  if (e.key === 'Escape') {
+    closeWordModal();
+    closeAuthModal();
+  }
 });
+
+document.getElementById('auth-form').addEventListener('submit', submitAuth);
 
 document.getElementById('sentences-container').addEventListener('click', event => {
   const word = event.target.closest('.word-token');
@@ -1320,9 +1483,15 @@ if (window.location.hash === '#practice') {
   openPractice();
 }
 
+initializeAccount();
+
 Object.assign(window, {
   openPractice,
   showHome,
+  openAuthModal,
+  closeAuthModal,
+  switchAuthMode,
+  signOut,
   processText,
   loadSample,
   speakSentence,

@@ -26,6 +26,7 @@ It provides detailed multi-dimensional scores (Accuracy, Completeness, Fluency, 
 - **Interactive Word Lookup**: Click *any* word after scoring to open a rich modal displaying phonetic IPA transcriptions, definitions, and usage examples. It queries a local dictionary first and falls back to a remote API.
 - **Voice Recording Playback**: Easily record your voice and replay it at any time to self-compare with the synthesized system voice.
 - **Progress Tracking & Analytics**: Displays a visual progress bar, count of completed sentences, and overall session average score.
+- **Email Account & Resume**: Create an account with an email and password, then resume the most recently generated practice text on a later visit.
 
 ---
 
@@ -35,7 +36,8 @@ It provides detailed multi-dimensional scores (Accuracy, Completeness, Fluency, 
 ├── index.html                  # Main application UI skeleton and external SDK loading
 ├── wrangler.jsonc              # Cloudflare Worker and Static Assets configuration
 ├── worker/
-│   └── index.js                # Cloudflare Worker that securely issues temporary Speech tokens
+│   └── index.js                # Cloudflare Worker API: Speech token, authentication, saved content
+├── migrations/                 # Cloudflare D1 schema for users, sessions and latest practice text
 ├── .assetsignore               # Prevents local/server files from being uploaded as public assets
 ├── public/                     # Public static assets served by Cloudflare
 │   ├── index.html              # Main application UI skeleton and external SDK loading
@@ -66,6 +68,9 @@ This is the heart of the app. It manages:
 ### 3. Server-Only Credential Flow (`public/src/modules/speechConfig.js`)
 The browser requests a short-lived token from **`POST /api/speech-token`**. The Cloudflare Worker reads `AZURE_SPEECH_KEY` from a secret and never exposes the Azure subscription key to frontend files or browser storage.
 
+### 4. Accounts & Saved Content (`worker/index.js`, `migrations/`)
+Accounts are stored in **Cloudflare D1**. Passwords are derived using Workers Web Crypto PBKDF2 with a random per-user salt; browser sessions use an `HttpOnly`, `SameSite=Lax` cookie. Each signed-in user has one saved latest practice text, restored automatically when they return.
+
 ---
 
 ## 🛠️ Local Development
@@ -87,6 +92,7 @@ Add your new Azure Speech key to `.dev.vars`; it is git-ignored and is read only
 
 Then run:
 ```bash
+npm run db:migrate:local
 npm run dev
 ```
 Open the local URL printed by Wrangler.
@@ -95,19 +101,24 @@ Open the local URL printed by Wrangler.
 
 ## 🚀 Production Deployment (Cloudflare Workers)
 
-SpeakFlow deploys as a Cloudflare Worker with Static Assets. The Worker handles `/api/speech-token`, while the frontend files are served as static assets:
+SpeakFlow deploys as a Cloudflare Worker with Static Assets and a D1 database. The Worker handles `/api/speech-token`, `/api/auth/*`, and `/api/content/*`, while the frontend files are served as static assets:
 
 1. Install dependencies and authenticate Wrangler:
    ```bash
    npm install
    npx wrangler login
    ```
-2. Set your rotated Azure Speech key as an encrypted Cloudflare secret:
+2. Create the D1 database and replace the placeholder `database_id` in `wrangler.jsonc` with the ID printed by Wrangler:
+   ```bash
+   npx wrangler d1 create speakflow-db
+   npm run db:migrate:remote
+   ```
+3. Set your Azure Speech key as an encrypted Cloudflare secret:
    ```bash
    npx wrangler secret put AZURE_SPEECH_KEY
    ```
-3. Set `AZURE_SPEECH_REGION` in `wrangler.jsonc` to the region shown for your Azure Speech resource.
-4. Deploy:
+4. Set `AZURE_SPEECH_REGION` in `wrangler.jsonc` to the region shown for your Azure Speech resource.
+5. Deploy:
    ```bash
    npm run deploy
    ```

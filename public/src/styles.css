@@ -64,6 +64,7 @@ button { cursor: pointer; }
 .brand-wave i:nth-child(2), .brand-wave i:nth-child(4) { height: 28px; }
 .brand-wave i:nth-child(3) { height: 39px; }
 .nav-tagline { color: var(--text2); font-size: 0.9rem; }
+.nav-controls { align-items: center; display: flex; gap: .55rem; }
 .nav-action {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border2);
@@ -73,6 +74,17 @@ button { cursor: pointer; }
   padding: 0.7rem 1.1rem;
 }
 .nav-action:hover { border-color: rgba(164, 123, 255, 0.55); }
+.nav-action.primary { background: var(--text); border-color: var(--text); color: #10141a; }
+.account-label {
+  color: var(--text2);
+  display: inline-block;
+  font-size: .78rem;
+  margin-right: .25rem;
+  max-width: 178px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .landing-content { margin: 0 auto; max-width: 1250px; }
 .hero {
   align-items: center;
@@ -320,6 +332,9 @@ textarea#input-text::placeholder { color: var(--text3); }
 .btn-secondary:hover { color: var(--text); }
 .tip-row { align-items: center; color: var(--text3); display: flex; font-size: .7rem; gap: .5rem; }
 .tip-tag { background: rgba(164,123,255,.12); border-radius: 4px; color: var(--accent2); font-size: .64rem; letter-spacing: .06em; padding: 2px 8px; }
+.save-status { color: var(--text3); font-size: .71rem; line-height: 1.5; min-height: 1.1rem; }
+.save-status.success { color: var(--green); }
+.save-status.error { color: var(--red); }
 .right-panel { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .right-toolbar { align-items: center; border-bottom: 1px solid var(--border); display: flex; flex-shrink: 0; gap: 1rem; padding: 1rem 2rem; }
 .toolbar-label { color: var(--text3); font-size: .73rem; white-space: nowrap; }
@@ -403,6 +418,35 @@ textarea#input-text::placeholder { color: var(--text3); }
 .modal-def { color: var(--text); font-size: .88rem; line-height: 1.6; margin-bottom: .85rem; }
 .modal-example { background: var(--bg3); border-left: 3px solid var(--accent2); border-radius: 8px; color: var(--text2); font-size: .82rem; font-style: italic; line-height: 1.7; padding: .6rem .9rem; }
 .modal-close { align-items: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--text2); display: flex; font-size: 14px; height: 28px; justify-content: center; position: absolute; right: 1rem; top: 1rem; width: 28px; }
+.auth-box {
+  background: #0b1016;
+  border: 1px solid var(--border2);
+  border-radius: 19px;
+  box-shadow: 0 30px 75px rgba(0,0,0,.58);
+  max-width: calc(100vw - 2rem);
+  padding: 1.7rem;
+  position: relative;
+  width: 410px;
+}
+.auth-box .eyebrow { margin-bottom: .65rem; }
+.auth-box h2 { font-size: 1.45rem; font-weight: 530; letter-spacing: -.035em; margin-bottom: .55rem; }
+.auth-intro { color: var(--text2); font-size: .82rem; line-height: 1.6; margin-bottom: 1.3rem; padding-right: 1rem; }
+.field-label { color: var(--text2); display: block; font-size: .74rem; margin: .82rem 0 .38rem; }
+.field-input {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: .88rem;
+  outline: none;
+  padding: .78rem .85rem;
+  width: 100%;
+}
+.field-input:focus { border-color: rgba(164,123,255,.7); }
+.auth-error { color: var(--red); font-size: .75rem; line-height: 1.5; min-height: 1.15rem; margin-top: .75rem; }
+.auth-submit { margin-top: .35rem; width: 100%; }
+.auth-switch { color: var(--text2); font-size: .78rem; margin-top: 1.1rem; text-align: center; }
+.auth-switch button { background: transparent; border: 0; color: var(--accent2); font-size: inherit; }
 
 @media (max-width: 940px) {
   .nav-tagline { display: none; }
@@ -415,7 +459,8 @@ textarea#input-text::placeholder { color: var(--text3); }
 }
 @media (max-width: 720px) {
   .landing-nav { height: 72px; }
-  .nav-action { display: none; }
+  .nav-tagline, .nav-action.primary, .nav-action.subtle { display: none; }
+  .account-label { max-width: 112px; }
   .hero { gap: 2rem; min-height: auto; }
   .hero h1 { font-size: clamp(2.55rem, 13vw, 3.2rem); }
   .hero-actions { flex-direction: column; }
