@@ -24,6 +24,22 @@ let readAllTimer = null;
 let isFinalizingAssessment = false;
 let countdownTimer = null;
 
+function openPractice(focusInput = false) {
+  document.getElementById('landing-page').classList.add('is-hidden');
+  document.getElementById('trainer-page').classList.remove('is-hidden');
+  window.location.hash = 'practice';
+  if (focusInput) {
+    document.getElementById('input-text').focus();
+  }
+}
+
+function showHome() {
+  stopCurrentActivity();
+  document.getElementById('trainer-page').classList.add('is-hidden');
+  document.getElementById('landing-page').classList.remove('is-hidden');
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
 function loadSample() {
   document.getElementById('input-text').value = SAMPLE_TEXT;
 }
@@ -1300,8 +1316,13 @@ if (window.speechSynthesis) {
   speechSynthesis.getVoices();
 }
 
+if (window.location.hash === '#practice') {
+  openPractice();
+}
 
 Object.assign(window, {
+  openPractice,
+  showHome,
   processText,
   loadSample,
   speakSentence,
