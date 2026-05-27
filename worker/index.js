@@ -16,6 +16,10 @@ export default {
       return handleAuthRequest(request, env, url.pathname);
     }
 
+    if (url.pathname.startsWith('/api/content/')) {
+      return handleContentRequest(request, env, url.pathname);
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -43,6 +47,62 @@ async function handleAuthRequest(request, env, pathname) {
     console.error(JSON.stringify({ event: 'auth_request_failed', pathname, message: error.message }));
     return json({ error: 'Authentication service is temporarily unavailable.' }, 500);
   }
+}
+
+async function handleContentRequest(request, env, pathname) {
+  if (!env.DB) {
+    return json({ error: 'Database binding is not configured.' }, 503);
+  }
+  if (pathname !== '/api/content/recent') {
+    return json({ error: 'Not found' }, 404);
+  }
+
+  try {
+    const user = await authenticate(request, env);
+    if (!user) {
+      return json({ error: 'Sign in to save your practice text.' }, 401);
+    }
+    if (request.method === 'GET') {
+      const content = await env.DB.prepare(
+        'SELECT text, updated_at AS updatedAt FROM practice_documents WHERE user_id = ?1'
+      ).bind(user.id).first();
+      return json({ content: content || null });
+    }
+    if (request.method === 'PUT') {
+      return saveRecentContent(request, env, user);
+    }
+    return json({ error: 'Method not allowed' }, 405, { Allow: 'GET, PUT' });
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'content_request_failed', pathname, message: error.message }));
+    return json({ error: 'Content storage is temporarily unavailable.' }, 500);
+  }
+}
+
+async function saveRecentContent(request, env, user) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'A JSON request body is required.' }, 400);
+  }
+  const text = String(body.text || '');
+  if (!text.trim()) {
+    return json({ error: 'Practice text cannot be empty.' }, 400);
+  }
+  if (text.length > 50000) {
+    return json({ error: 'Practice text must be 50,000 characters or fewer.' }, 400);
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO practice_documents (user_id, text, updated_at)
+     VALUES (?1, ?2, CURRENT_TIMESTAMP)
+     ON CONFLICT(user_id) DO UPDATE SET text = excluded.text, updated_at = CURRENT_TIMESTAMP`
+  ).bind(user.id, text).run();
+
+  const content = await env.DB.prepare(
+    'SELECT text, updated_at AS updatedAt FROM practice_documents WHERE user_id = ?1'
+  ).bind(user.id).first();
+  return json({ content });
 }
 
 async function registerUser(request, env) {
