@@ -8,63 +8,139 @@
 </head>
 <body>
 
-<header>
-  <div class="logo">SpeakFlow <span>Pronunciation Trainer</span></div>
-  <div class="header-stats">
-    <div class="stat-pill">Sentences: <strong id="stat-total">0</strong></div>
-    <div class="stat-pill">Completed: <strong id="stat-done">0</strong></div>
-    <div class="stat-pill" id="avg-score-pill" style="display:none">Avg Score: <strong id="stat-avg">—</strong></div>
-  </div>
-</header>
+<section class="landing-page" id="landing-page">
+  <nav class="landing-nav">
+    <button class="brand" type="button" onclick="showHome()" aria-label="SpeakFlow home">
+      <span class="brand-wave"><i></i><i></i><i></i><i></i><i></i></span>
+      <span>speakflow</span>
+    </button>
+    <div class="nav-tagline">Practice. Improve. Speak with Confidence.</div>
+    <button class="nav-action" type="button" onclick="openPractice()">Start practicing</button>
+  </nav>
 
-<div class="main">
-  <!-- LEFT PANEL -->
-  <div class="left-panel">
-    <div class="panel-header">
-      <div class="panel-title">Input Text</div>
-      <p>Paste or type English text. It will be split into practice sentences.</p>
+  <main class="landing-content">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">AI pronunciation training</p>
+        <h1>Speak English.<br><span>Flow Confidently.</span></h1>
+        <p class="hero-description">Upload or paste your speech, interview answer, or any English text. Get instant feedback on pronunciation, fluency, and naturalness.</p>
+        <div class="hero-actions">
+          <button class="cta-primary" type="button" onclick="openPractice(true)">Upload / Paste Text</button>
+          <button class="cta-secondary" type="button" onclick="openPractice()">Start Speaking</button>
+        </div>
+      </div>
+      <div class="hero-demo" aria-label="Pronunciation feedback preview">
+        <div class="demo-speech">I'm confident that<br>I can handle this<br>challenge.<span class="mini-wave"></span></div>
+        <div class="demo-panel">
+          <div class="demo-score"><strong>87</strong><span>Overall Score</span></div>
+          <div class="demo-bars">
+            <label>Pronunciation <b>85</b></label><i style="--value:85%;--tone:var(--green)"></i>
+            <label>Fluency <b>82</b></label><i style="--value:82%;--tone:var(--accent)"></i>
+            <label>Naturalness <b>89</b></label><i style="--value:89%;--tone:var(--accent2)"></i>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="value-cards" aria-label="What you can practice">
+      <article>
+        <span class="feature-icon purple">+</span>
+        <h2>Practice Your Way</h2>
+        <p>练好你的英文演讲或面试稿，逐句纠正发音和流利度。</p>
+      </article>
+      <article>
+        <span class="feature-icon green">≋</span>
+        <h2>Any Text to Practice</h2>
+        <p>把任意英文文章变成跟读练习，自己的材料马上就能练。</p>
+      </article>
+      <article>
+        <span class="feature-icon blue">⌕</span>
+        <h2>Spot Every Mistake</h2>
+        <p>定位说错、漏读或不自然的词，获得逐词颜色反馈。</p>
+      </article>
+      <article>
+        <span class="feature-icon yellow">▶</span>
+        <h2>Listen & Improve</h2>
+        <p>回放你的录音，对照系统朗读，一句一句改进。</p>
+      </article>
+    </section>
+
+    <section class="preview-card">
+      <div class="preview-summary">
+        <p>Live assessment preview</p>
+        <strong>87</strong>
+        <span>Great job! Keep your rhythm natural.</span>
+      </div>
+      <div class="preview-words">
+        <div><b>opportunity</b><span class="flag warning">Stress the third syllable</span><em>78</em></div>
+        <div><b>communicate</b><span class="flag warning">Missing one sound</span><em>72</em></div>
+        <div><b>confident</b><span class="flag good">Great pronunciation</span><em>94</em></div>
+      </div>
+    </section>
+    <p class="closing-line">The more you practice, the more natural you'll sound.</p>
+  </main>
+</section>
+
+<section class="trainer-page is-hidden" id="trainer-page">
+  <header class="trainer-header">
+    <button class="brand compact" type="button" onclick="showHome()" aria-label="Back to SpeakFlow home">
+      <span class="brand-wave"><i></i><i></i><i></i><i></i><i></i></span>
+      <span>speakflow</span>
+    </button>
+    <div class="header-stats">
+      <div class="stat-pill">Sentences <strong id="stat-total">0</strong></div>
+      <div class="stat-pill">Completed <strong id="stat-done">0</strong></div>
+      <div class="stat-pill" id="avg-score-pill" style="display:none">Avg Score <strong id="stat-avg">—</strong></div>
+      <button class="nav-action subtle" type="button" onclick="showHome()">Home</button>
     </div>
-    <textarea id="input-text" placeholder="e.g.&#10;I went to the park yesterday. The weather was beautiful. I met an old friend there, and we talked for hours about life and memories."></textarea>
-    <div class="left-footer">
-      <button class="btn-primary" onclick="processText()">⇒ Generate Practice</button>
-      <button class="btn-secondary" onclick="loadSample()">Load Sample Text</button>
-      <div class="tip-row">
-        <span class="tip-tag">TIP</span>
-        <span>Click any word after scoring to see its definition</span>
+  </header>
+
+  <div class="main">
+    <div class="left-panel">
+      <div class="panel-header">
+        <div class="panel-title">Your Text</div>
+        <h2>Practice your own words.</h2>
+        <p>Paste a speech, interview answer, or any English text. We split it into focused speaking cards.</p>
+      </div>
+      <textarea id="input-text" placeholder="Paste the English text you need to say with confidence..."></textarea>
+      <div class="left-footer">
+        <button class="btn-primary" onclick="processText()">Generate Practice</button>
+        <button class="btn-secondary" onclick="loadSample()">Try a Sample Text</button>
+        <div class="tip-row">
+          <span class="tip-tag">TIP</span>
+          <span>Click any scored word to view its definition</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="right-toolbar">
+        <span class="toolbar-label">Session Progress</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+        <div class="score-badge" id="overall-score-badge" style="display:none">Overall <span id="overall-score">—</span></div>
+        <button class="btn-replay" id="btn-read-all" style="display:none" onclick="readAll()">▶ Read All</button>
+      </div>
+
+      <div class="sentences-container" id="sentences-container">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">◌</div>
+          <h3>Ready when you are.</h3>
+          <p>Paste English text on the left, then generate your personalized pronunciation session.</p>
+        </div>
+      </div>
+
+      <div class="legend" id="legend" style="display:none">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Accurate</div>
+        <div class="legend-sep"></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Close</div>
+        <div class="legend-sep"></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Needs work</div>
+        <div class="legend-sep"></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Missed</div>
       </div>
     </div>
   </div>
-
-  <!-- RIGHT PANEL -->
-  <div class="right-panel">
-    <div class="right-toolbar">
-      <span class="toolbar-label">Progress</span>
-      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
-      <div class="score-badge" id="overall-score-badge" style="display:none">Overall: <span id="overall-score">—</span></div>
-      <button class="btn-replay" id="btn-read-all" style="display:none" onclick="readAll()">▶ Read All</button>
-    </div>
-
-    <div class="sentences-container" id="sentences-container">
-      <div class="empty-state" id="empty-state">
-        <div class="empty-icon">🎙</div>
-        <h3>Start Practicing</h3>
-        <p>Type or paste English text on the left, then click Generate Practice to begin your speaking session.</p>
-      </div>
-    </div>
-
-    <div class="legend" id="legend" style="display:none">
-      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Accurate</div>
-      <div class="legend-sep"></div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Close</div>
-      <div class="legend-sep"></div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Needs work</div>
-      <div class="legend-sep"></div>
-      <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>Missed</div>
-      <div class="legend-sep"></div>
-      <span style="font-size:0.7rem;color:var(--text3)">Click any word for definition</span>
-    </div>
-  </div>
-</div>
+</section>
 
 <!-- Word Modal -->
 <div class="modal-overlay" id="word-modal" onclick="closeModal(event)">
@@ -84,6 +160,6 @@
 </div>
 
 <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
-<script type="module" src="./src/main.js?v=20260514-single-delegated-native"></script>
+<script type="module" src="./src/main.js?v=20260527-landing"></script>
 </body>
 </html>
