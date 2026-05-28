@@ -94,7 +94,7 @@ export function renderScoreRow(idx, overall) {
 
 export function renderAssessmentSummaryHtml(assessment) {
   const insertionText = assessment.insertions?.length
-    ? `<br>多读词：${escapeHtml(assessment.insertions.join(', '))}`
+    ? `<br>Extra words: ${escapeHtml(assessment.insertions.join(', '))}`
     : '';
   const s = {
     overall: clamp(assessment.overall),
@@ -104,7 +104,7 @@ export function renderAssessmentSummaryHtml(assessment) {
     prosody: clamp(assessment.prosody),
   };
   return `
-    评估完成：${s.overall}%
+    Assessment complete: ${s.overall}%
     <div class="assessment-grid">
       <div class="assessment-chip">Pronunciation <strong>${s.overall}%</strong></div>
       <div class="assessment-chip">Accuracy <strong>${s.accuracy}%</strong></div>
@@ -112,7 +112,7 @@ export function renderAssessmentSummaryHtml(assessment) {
       <div class="assessment-chip">Fluency <strong>${s.fluency}%</strong></div>
       <div class="assessment-chip">Prosody <strong>${s.prosody}%</strong></div>
     </div>
-    <span class="live-transcript">最终识别：${escapeHtml(assessment.recognizedText)}${insertionText}</span>
+    <span class="live-transcript">Final transcript: ${escapeHtml(assessment.recognizedText)}${insertionText}</span>
   `;
 }
 
@@ -126,7 +126,7 @@ function clamp(v) {
 
 export function renderLiveTranscript(idx, finalText, partialText) {
   setRecordStatusHtml(idx, `
-    正在录音，实时识别：
+    Recording now. Live transcript:
     <span class="live-transcript">${escapeHtml(finalText || '...')} ${
       partialText ? `<em>${escapeHtml(partialText)}</em>` : ''
     }</span>
@@ -289,6 +289,6 @@ export function closeWordModal() {
 export function setCountdownStatus(idx, remaining) {
   setRecordStatusHtml(
     idx,
-    `Azure 已准备好，${remaining} 秒后开始朗读。<span class="live-transcript">请先吸气准备，不要马上开口。</span>`
+    `Azure is ready. Start reading in ${remaining} seconds.<span class="live-transcript">Take a breath and wait for the countdown.</span>`
   );
 }

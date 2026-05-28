@@ -114,11 +114,11 @@ export class AudioRecorder {
   async start() {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error(
-        '当前页面无法访问麦克风。请使用 http://127.0.0.1 或 https 页面打开，不要直接用不受支持的本地文件环境。'
+        'This page cannot access your microphone. Open it over http://127.0.0.1 or HTTPS instead of an unsupported local file context.'
       );
     }
     if (!window.MediaRecorder) {
-      throw new Error('当前浏览器不支持 MediaRecorder，请使用新版 Chrome 或 Edge。');
+      throw new Error('Your browser does not support MediaRecorder. Please use a recent version of Chrome or Edge.');
     }
 
     this._stream = await navigator.mediaDevices.getUserMedia({ audio: true });

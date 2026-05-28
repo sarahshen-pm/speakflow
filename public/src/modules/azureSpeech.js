@@ -59,7 +59,7 @@ export function waitForVoices(timeoutMs = 800) {
 export async function synthesizeAzureTts(text, voice = 'en-US-JennyNeural') {
   const credentials = await getSpeechCredentials();
   if (!credentials.region || (!credentials.token && !credentials.key)) {
-    throw new Error(`Azure TTS 凭证未配置：${JSON.stringify(credentials.diagnostics || {})}`);
+    throw new Error(`Azure TTS credentials are not configured: ${JSON.stringify(credentials.diagnostics || {})}`);
   }
 
   const authHeaders = credentials.token
@@ -116,7 +116,7 @@ export function speakTextFallback(text, options = {}) {
         if (!started && !settled) {
           speechSynthesis.cancel();
           settled = true;
-          reject(new Error('浏览器语音合成没有启动，请再点一次或检查系统语音服务。'));
+          reject(new Error('Speech synthesis did not start. Please try again or check your system speech service.'));
         }
       }, 1200);
 
@@ -160,13 +160,13 @@ export function speakTextFallback(text, options = {}) {
 export async function startContinuousAssessment(sentence, callbacks) {
   const { onReady, onRecognizing, onRecognized, onError, onStopped } = callbacks;
 
-  if (!window.SpeechSDK) throw new Error('Azure Speech SDK 未加载，请检查网络连接后刷新。');
+  if (!window.SpeechSDK) throw new Error('Azure Speech SDK did not load. Check your connection and refresh.');
 
   const sdk = window.SpeechSDK;
   const credentials = await getSpeechCredentials();
 
   if (!credentials.region || (!credentials.token && !credentials.key)) {
-    throw new Error(`Azure Speech 凭证未配置。读取状态：${JSON.stringify(credentials.diagnostics || {})}`);
+    throw new Error(`Azure Speech credentials are not configured. Status: ${JSON.stringify(credentials.diagnostics || {})}`);
   }
 
   const speechConfig = credentials.token
@@ -207,7 +207,7 @@ export async function startContinuousAssessment(sentence, callbacks) {
   };
 
   recognizer.canceled = (_, event) => {
-    onError?.(`Azure 识别取消：${event.errorDetails || event.reason || 'Unknown'}`);
+    onError?.(`Azure recognition canceled: ${event.errorDetails || event.reason || 'Unknown'}`);
   };
 
   recognizer.sessionStopped = () => {
@@ -239,7 +239,7 @@ export async function startContinuousAssessment(sentence, callbacks) {
 export async function assessWithRestApi(wavBlob, referenceText) {
   const credentials = await getSpeechCredentials();
   if (!credentials.region || (!credentials.token && !credentials.key)) {
-    throw new Error('Azure Speech 凭证未配置。');
+    throw new Error('Azure Speech credentials are not configured.');
   }
 
   const configJson = JSON.stringify({
@@ -276,7 +276,7 @@ export async function assessWithRestApi(wavBlob, referenceText) {
 
   const nBest = data.NBest?.[0];
   if (!nBest) {
-    throw new Error(`Azure 没有返回识别结果：${data.RecognitionStatus || 'Unknown status'}`);
+    throw new Error(`Azure returned no recognition result: ${data.RecognitionStatus || 'Unknown status'}`);
   }
 
   const refWords = referenceText.replace(/[.!?,;:]/g, '').split(' ').filter(w => w);
@@ -287,14 +287,14 @@ export async function assessWithRestApi(wavBlob, referenceText) {
     if (recognizedText.trim()) {
       return {
         ...fallbackScoreFromRecognizedText(refWords, recognizedText),
-        debug: `Azure 返回了识别文本，但没有返回逐词评分。识别文本：${recognizedText}`,
+        debug: `Azure returned recognized text without word-level scores. Transcript: ${recognizedText}`,
       };
     }
     return {
       words: refWords,
       wordScores: refWords.map(() => 'missed'),
       overall: 0,
-      debug: `Azure 没有识别到有效语音。RecognitionStatus: ${data.RecognitionStatus || 'Unknown'}`,
+      debug: `Azure did not recognize valid speech. RecognitionStatus: ${data.RecognitionStatus || 'Unknown'}`,
     };
   }
 
@@ -326,6 +326,6 @@ export async function assessWithRestApi(wavBlob, referenceText) {
     words: refWords,
     wordScores: wordScores.some(s => s !== 'missed') ? wordScores : textFallback.wordScores,
     overall,
-    debug: `Azure: ${data.RecognitionStatus || 'Success'}；识别文本：${recognizedText || '—'}`,
+    debug: `Azure: ${data.RecognitionStatus || 'Success'}; transcript: ${recognizedText || '—'}`,
   };
 }
