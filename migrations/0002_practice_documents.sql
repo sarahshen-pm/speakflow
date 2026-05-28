@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS practice_documents (
+  user_id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

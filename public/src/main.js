@@ -1,5 +1,15 @@
 import { SAMPLE_TEXT, wordDB } from './modules/data.js';
 import { getSpeechCredentials } from './modules/speechConfig.js';
+import {
+  getCurrentUser,
+  login as loginAccount,
+  logout as logoutAccount,
+  register as registerAccount
+} from './modules/auth.js';
+import {
+  loadRecentContent,
+  saveRecentContent as persistRecentContent
+} from './modules/contentStore.js';
 
 let sentences = [];
 let scores = [];
@@ -23,6 +33,9 @@ let totalDone = 0;
 let readAllTimer = null;
 let isFinalizingAssessment = false;
 let countdownTimer = null;
+let currentUser = null;
+let authMode = 'login';
+let saveRequestId = 0;
 
 function openPractice(focusInput = false) {
   document.getElementById('landing-page').classList.add('is-hidden');
@@ -44,6 +57,148 @@ function loadSample() {
   document.getElementById('input-text').value = SAMPLE_TEXT;
 }
 
+function setSaveStatus(message, type = '') {
+  const el = document.getElementById('content-save-status');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `save-status ${type}`.trim();
+}
+
+function updateAccountUi() {
+  ['home', 'trainer'].forEach(location => {
+    const account = document.getElementById(`${location}-account-label`);
+    const authButton = document.getElementById(`${location}-auth-button`);
+    const logoutButton = document.getElementById(`${location}-logout-button`);
+    if (currentUser) {
+      account.textContent = currentUser.email;
+      account.classList.remove('is-hidden');
+      authButton.classList.add('is-hidden');
+      logoutButton.classList.remove('is-hidden');
+    } else {
+      account.textContent = '';
+      account.classList.add('is-hidden');
+      authButton.classList.remove('is-hidden');
+      logoutButton.classList.add('is-hidden');
+    }
+  });
+  setSaveStatus(
+    currentUser ? 'Your latest generated text is saved to your account.' : 'Sign in to save your latest practice text.'
+  );
+}
+
+async function restoreRecentText(autoStart = false) {
+  if (!currentUser) return;
+  try {
+    const content = await loadRecentContent();
+    if (!content?.text) return;
+    const input = document.getElementById('input-text');
+    if (input.value.trim()) return;
+    input.value = content.text;
+    setSaveStatus('Restored your most recent practice text.', 'success');
+    if (autoStart) {
+      openPractice();
+      processText({ skipSave: true });
+    }
+  } catch (error) {
+    setSaveStatus(error.message, 'error');
+  }
+}
+
+async function savePracticeText(text) {
+  if (!currentUser) return;
+  const requestId = ++saveRequestId;
+  setSaveStatus('Saving your latest practice text...');
+  try {
+    await persistRecentContent(text);
+    if (requestId === saveRequestId) {
+      setSaveStatus('Saved. This text will be ready next time you sign in.', 'success');
+    }
+  } catch (error) {
+    if (requestId === saveRequestId) {
+      setSaveStatus(error.message, 'error');
+    }
+  }
+}
+
+function openAuthModal(mode = 'login') {
+  authMode = mode;
+  renderAuthMode();
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-form').reset();
+  document.getElementById('auth-modal').classList.add('open');
+  document.getElementById('auth-email').focus();
+}
+
+function renderAuthMode() {
+  const registering = authMode === 'register';
+  document.getElementById('auth-title').textContent = registering ? 'Create your account' : 'Sign in to SpeakFlow';
+  document.getElementById('auth-submit').textContent = registering ? 'Create account' : 'Sign in';
+  document.getElementById('auth-switch-copy').textContent = registering ? 'Already have an account?' : 'New to SpeakFlow?';
+  document.getElementById('auth-switch-button').textContent = registering ? 'Sign in' : 'Create an account';
+  document.getElementById('auth-password').autocomplete = registering ? 'new-password' : 'current-password';
+}
+
+function switchAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-error').textContent = '';
+  renderAuthMode();
+}
+
+function closeAuthModal(event) {
+  const modal = document.getElementById('auth-modal');
+  if (!event || event.target === modal) modal.classList.remove('open');
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  const button = document.getElementById('auth-submit');
+  const errorEl = document.getElementById('auth-error');
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  button.disabled = true;
+  errorEl.textContent = '';
+  try {
+    currentUser = authMode === 'register'
+      ? await registerAccount(email, password)
+      : await loginAccount(email, password);
+    closeAuthModal();
+    updateAccountUi();
+    const input = document.getElementById('input-text');
+    if (input.value.trim()) {
+      openPractice();
+      await savePracticeText(input.value.trim());
+    } else {
+      await restoreRecentText(true);
+      openPractice();
+    }
+  } catch (error) {
+    errorEl.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function signOut() {
+  try {
+    await logoutAccount();
+  } finally {
+    currentUser = null;
+    updateAccountUi();
+  }
+}
+
+async function initializeAccount() {
+  try {
+    currentUser = await getCurrentUser();
+  } catch {
+    currentUser = null;
+  }
+  updateAccountUi();
+  if (currentUser) {
+    await restoreRecentText(true);
+  }
+}
+
 function splitSentences(text) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return [];
@@ -58,7 +213,7 @@ function splitSentences(text) {
     .filter(sentence => sentence && /[A-Za-z]/.test(sentence));
 }
 
-function processText() {
+function processText({ skipSave = false } = {}) {
   const text = document.getElementById('input-text').value.trim();
   if (!text) return;
   stopCurrentActivity();
@@ -78,6 +233,9 @@ function processText() {
   document.getElementById('btn-read-all').style.display = 'inline-block';
   updateProgress();
   updateAvgScore();
+  if (currentUser && !skipSave) {
+    savePracticeText(text);
+  }
 }
 
 function renderSentences() {
@@ -155,13 +313,13 @@ async function speakSentence(idx) {
   }
   const btn = document.getElementById(`play-btn-${idx}`);
   btn?.classList.add('playing');
-  setRecordStatus(idx, '正在播放系统朗读...');
+  setRecordStatus(idx, 'Playing the model pronunciation...');
 
   try {
     await speakText(sentences[idx], { defer: false });
   } catch (error) {
     btn?.classList.remove('playing');
-    setRecordStatus(idx, `系统朗读失败：${error.message}`, 'error');
+    setRecordStatus(idx, `Could not play the model pronunciation: ${error.message}`, 'error');
     return;
   }
 
@@ -192,7 +350,7 @@ async function playSystemAudio(text, { cacheKey = text, voice = 'en-US-JennyNeur
     };
     audio.onerror = () => {
       currentSystemAudio = null;
-      reject(new Error('浏览器无法播放 Azure 合成音频。'));
+      reject(new Error('Your browser could not play the Azure synthesized audio.'));
     };
     audio.play().catch(error => {
       currentSystemAudio = null;
@@ -204,7 +362,7 @@ async function playSystemAudio(text, { cacheKey = text, voice = 'en-US-JennyNeur
 async function synthesizeAzureTts(text, voice) {
   const credentials = await getSpeechCredentials();
   if (!credentials.region || (!credentials.token && !credentials.key)) {
-    throw new Error(`Azure TTS 凭证未配置：${JSON.stringify(credentials.diagnostics || {})}`);
+    throw new Error(`Azure TTS credentials are not configured: ${JSON.stringify(credentials.diagnostics || {})}`);
   }
   const authHeaders = credentials.token
     ? { Authorization: `Bearer ${credentials.token}` }
@@ -258,7 +416,7 @@ function speakText(text, options = {}) {
         if (!started && !settled) {
           speechSynthesis.cancel();
           settled = true;
-          reject(new Error('浏览器语音合成没有启动，请再点一次或检查系统语音服务。'));
+          reject(new Error('Speech synthesis did not start. Please try again or check your system speech service.'));
         }
       }, 1200);
       utterance.onstart = () => {
@@ -342,11 +500,11 @@ function clearCountdown() {
 function startReadyCountdown(idx, seconds, onDone) {
   clearCountdown();
   let remaining = seconds;
-  setRecordStatusHtml(idx, `Azure 已准备好，${remaining} 秒后开始朗读。<span class="live-transcript">请先吸气准备，不要马上开口。</span>`);
+  setRecordStatusHtml(idx, `Azure is ready. Start reading in ${remaining} seconds.<span class="live-transcript">Take a breath and wait for the countdown.</span>`);
   countdownTimer = setInterval(() => {
     remaining -= 1;
     if (remaining > 0) {
-      setRecordStatusHtml(idx, `Azure 已准备好，${remaining} 秒后开始朗读。<span class="live-transcript">请先吸气准备，不要马上开口。</span>`);
+      setRecordStatusHtml(idx, `Azure is ready. Start reading in ${remaining} seconds.<span class="live-transcript">Take a breath and wait for the countdown.</span>`);
       return;
     }
     clearCountdown();
@@ -443,7 +601,7 @@ function updateReplayButton(idx) {
 function replayRecording(idx) {
   const url = recordingPlaybackUrls[idx];
   if (!url) {
-    setRecordStatus(idx, '还没有可回放的录音，请先完成一次跟读。');
+    setRecordStatus(idx, 'No recording is available yet. Complete one reading first.');
     return;
   }
   window.speechSynthesis?.cancel();
@@ -467,7 +625,7 @@ function replayRecording(idx) {
     currentReplayAudio = null;
   };
   audio.onerror = () => {
-    setRecordStatus(idx, '录音回放失败：浏览器无法解码这段录音。', 'error');
+    setRecordStatus(idx, 'Recording playback failed: your browser could not decode this audio.', 'error');
     if (btn) {
       btn.classList.remove('playing');
       btn.disabled = false;
@@ -475,7 +633,7 @@ function replayRecording(idx) {
     currentReplayAudio = null;
   };
   audio.play().catch(error => {
-    setRecordStatus(idx, `录音回放失败：${error.message}`, 'error');
+    setRecordStatus(idx, `Recording playback failed: ${error.message}`, 'error');
     if (btn) {
       btn.classList.remove('playing');
       btn.disabled = false;
@@ -501,13 +659,13 @@ async function startRecording(idx) {
 
   try {
     if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('当前页面无法访问麦克风。请使用 http://127.0.0.1 或 https 页面打开，不要直接用不受支持的本地文件环境。');
+      throw new Error('This page cannot access your microphone. Open it over http://127.0.0.1 or HTTPS instead of an unsupported local file context.');
     }
     if (!window.MediaRecorder) {
-      throw new Error('当前浏览器不支持 MediaRecorder，请使用新版 Chrome 或 Edge。');
+      throw new Error('Your browser does not support MediaRecorder. Please use a recent version of Chrome or Edge.');
     }
     clearRecordStatus(idx);
-    setRecordStatus(idx, '正在请求麦克风权限...');
+    setRecordStatus(idx, 'Requesting microphone access...');
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // Use audio/webm if supported, else fallback
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
@@ -527,7 +685,7 @@ async function startRecording(idx) {
     btn.title = 'Stop recording';
     const card = document.getElementById(`card-${idx}`);
     card.classList.add('active');
-    setRecordStatus(idx, '正在录音，请朗读这一句。再次点击红色按钮可停止；系统也会自动停止并分析。');
+    setRecordStatus(idx, 'Recording now. Read this sentence aloud. Click the red button again to stop, or wait for automatic analysis.');
     startWaveform(idx);
     const maxMs = Math.min(30000, Math.max(10000, sentences[idx].split(/\s+/).length * 950 + 4500));
     autoStopTimer = setTimeout(() => {
@@ -535,7 +693,7 @@ async function startRecording(idx) {
     }, maxMs);
   } catch(e) {
     console.error('Recording start error:', e);
-    setRecordStatus(idx, e.message || '麦克风启动失败，请检查权限后重试。', 'error');
+    setRecordStatus(idx, e.message || 'Could not start the microphone. Check permission and try again.', 'error');
   }
 }
 
@@ -558,7 +716,7 @@ function stopRecording(idx) {
     autoStopTimer = null;
   }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    setRecordStatus(idx, '录音结束，正在分析发音...');
+    setRecordStatus(idx, 'Recording finished. Analyzing your pronunciation...');
     mediaRecorder.stop();
   } else {
     processRecording(idx);
@@ -589,12 +747,12 @@ async function startAzureContinuousAssessment(idx) {
   try {
     if (speechRecognizer || isFinalizingAssessment) return;
     clearRecordStatus(idx);
-    if (!window.SpeechSDK) throw new Error('Azure Speech SDK 未加载，请检查网络连接后刷新。');
+    if (!window.SpeechSDK) throw new Error('Azure Speech SDK did not load. Check your connection and refresh.');
 
     const sdk = window.SpeechSDK;
     const credentials = await getSpeechCredentials();
     if (!credentials.region || (!credentials.token && !credentials.key)) {
-      throw new Error(`Azure Speech 凭证未配置。读取状态：${JSON.stringify(credentials.diagnostics || {})}`);
+      throw new Error(`Azure Speech credentials are not configured. Status: ${JSON.stringify(credentials.diagnostics || {})}`);
     }
     const speechConfig = credentials.token
       ? sdk.SpeechConfig.fromAuthorizationToken(credentials.token, credentials.region)
@@ -646,7 +804,7 @@ async function startAzureContinuousAssessment(idx) {
 
     speechRecognizer.canceled = (_, event) => {
       console.error('Azure continuous recognition canceled:', event);
-      setRecordStatus(idx, `Azure 识别取消：${event.errorDetails || event.reason || 'Unknown'}`, 'error');
+      setRecordStatus(idx, `Azure recognition canceled: ${event.errorDetails || event.reason || 'Unknown'}`, 'error');
       cleanupAzureContinuous(idx, false);
     };
 
@@ -660,7 +818,7 @@ async function startAzureContinuousAssessment(idx) {
     btn.textContent = '■';
     btn.title = 'Stop recording';
     document.getElementById(`card-${idx}`).classList.add('active');
-    setRecordStatusHtml(idx, '正在连接 Azure 并预热麦克风...<span class="live-transcript">请先不要开口，等待倒计时结束。</span>');
+    setRecordStatusHtml(idx, 'Connecting to Azure and preparing the microphone...<span class="live-transcript">Please wait for the countdown before speaking.</span>');
     startWaveform(idx);
 
     speechRecognizer.startContinuousRecognitionAsync(
@@ -669,7 +827,7 @@ async function startAzureContinuousAssessment(idx) {
         startReadyCountdown(idx, 3, async () => {
           if (activeRecording !== idx || !speechRecognizer) return;
           await startPlaybackCapture(idx);
-          setRecordStatusHtml(idx, '现在开始朗读。再次点击红色按钮可停止。<span class="live-transcript">等待语音输入...</span>');
+          setRecordStatusHtml(idx, 'Start reading now. Click the red button again to stop.<span class="live-transcript">Waiting for your voice...</span>');
           const maxMs = Math.min(45000, Math.max(16000, sentences[idx].split(/\s+/).length * 1300 + 6500));
           autoStopTimer = setTimeout(() => {
             if (activeRecording === idx) stopAzureContinuousAssessment(idx);
@@ -678,13 +836,13 @@ async function startAzureContinuousAssessment(idx) {
       },
       error => {
         console.error('Azure start error:', error);
-        setRecordStatus(idx, `Azure 启动失败：${error}`, 'error');
+        setRecordStatus(idx, `Azure failed to start: ${error}`, 'error');
         cleanupAzureContinuous(idx, false);
       }
     );
   } catch (e) {
     console.error('Azure continuous setup error:', e);
-    setRecordStatus(idx, e.message || 'Azure 连续识别启动失败。', 'error');
+    setRecordStatus(idx, e.message || 'Azure continuous recognition could not start.', 'error');
     cleanupAzureContinuous(idx, false);
   }
 }
@@ -699,7 +857,7 @@ function stopAzureContinuousAssessment(idx) {
   }
   stopPlaybackCapture(idx, true);
   setRecordButtonState(idx, '⏳', 'Finalizing assessment...', true);
-  setRecordStatus(idx, '正在结束识别并生成最终评估...');
+  setRecordStatus(idx, 'Finishing recognition and generating your assessment...');
   if (!speechRecognizer) {
     finishAzureContinuousAssessment(idx);
     return;
@@ -708,7 +866,7 @@ function stopAzureContinuousAssessment(idx) {
     () => finishAzureContinuousAssessment(idx),
     error => {
       console.error('Azure stop error:', error);
-      setRecordStatus(idx, `停止识别失败：${error}`, 'error');
+      setRecordStatus(idx, `Could not stop recognition: ${error}`, 'error');
       cleanupAzureContinuous(idx, false);
     }
   );
@@ -738,7 +896,7 @@ function renderLiveTranscript(idx) {
   const finalText = continuousState.recognizedText.join(' ');
   const partialText = continuousState.latestPartial;
   setRecordStatusHtml(idx, `
-    正在录音，实时识别：
+    Recording now. Live transcript:
     <span class="live-transcript">${escapeHtml(finalText || '...')} ${partialText ? `<em>${escapeHtml(partialText)}</em>` : ''}</span>
   `);
 }
@@ -888,14 +1046,14 @@ function weightedAverage(values, weights) {
 }
 
 function renderAssessmentSummary(assessment) {
-  const insertionText = assessment.insertions.length ? `<br>多读词：${escapeHtml(assessment.insertions.join(', '))}` : '';
+  const insertionText = assessment.insertions.length ? `<br>Extra words: ${escapeHtml(assessment.insertions.join(', '))}` : '';
   const safeOverall = clampScore(assessment.overall);
   const safeAccuracy = clampScore(assessment.accuracy);
   const safeCompleteness = clampScore(assessment.completeness);
   const safeFluency = clampScore(assessment.fluency);
   const safeProsody = clampScore(assessment.prosody);
   return `
-    评估完成：${safeOverall}%
+    Assessment complete: ${safeOverall}%
     <div class="assessment-grid">
       <div class="assessment-chip">Pronunciation <strong>${safeOverall}%</strong></div>
       <div class="assessment-chip">Accuracy <strong>${safeAccuracy}%</strong></div>
@@ -903,7 +1061,7 @@ function renderAssessmentSummary(assessment) {
       <div class="assessment-chip">Fluency <strong>${safeFluency}%</strong></div>
       <div class="assessment-chip">Prosody <strong>${safeProsody}%</strong></div>
     </div>
-    <span class="live-transcript">最终识别：${escapeHtml(assessment.recognizedText)}${insertionText}</span>
+    <span class="live-transcript">Final transcript: ${escapeHtml(assessment.recognizedText)}${insertionText}</span>
   `;
 }
 
@@ -920,27 +1078,27 @@ async function processRecording(idx) {
 
   try {
     if (!audioChunks.length) {
-      throw new Error('没有录到音频，请确认麦克风正常工作后重试。');
+      throw new Error('No audio was recorded. Confirm your microphone is working and try again.');
     }
     const blob = new Blob(audioChunks, { type: 'audio/webm' });
     if (blob.size < 800) {
-      throw new Error('录音太短或没有声音，请完整朗读句子后再停止。');
+      throw new Error('The recording was too short or silent. Read the complete sentence before stopping.');
     }
-    setRecordStatus(idx, '正在转换音频...');
+    setRecordStatus(idx, 'Converting audio...');
     const wavBlob = await convertToWav(blob);
-    setRecordStatus(idx, '正在调用 Azure Pronunciation Assessment...');
+    setRecordStatus(idx, 'Running Azure Pronunciation Assessment...');
     const result = await azurePronunciationAssess(wavBlob, sentences[idx]);
     scores[idx] = result.overall;
     renderWordScores(idx, result.words, result.wordScores);
     renderScoreRow(idx, result.overall);
-    setRecordStatus(idx, `分析完成：${result.overall}%${result.debug ? '。' + result.debug : ''}`, result.overall > 0 ? 'success' : 'error');
+    setRecordStatus(idx, `Analysis complete: ${result.overall}%${result.debug ? '. ' + result.debug : ''}`, result.overall > 0 ? 'success' : 'error');
   } catch(e) {
     console.error('Azure assessment error:', e);
     // Fallback: show error on card
     const scoreRow = document.getElementById(`score-row-${idx}`);
     scoreRow.style.display = 'flex';
     scoreRow.innerHTML = `<span class="score-text" style="color:var(--red)">Error</span>`;
-    setRecordStatus(idx, e.message || '分析失败，请稍后再试。', 'error');
+    setRecordStatus(idx, e.message || 'Analysis failed. Please try again later.', 'error');
   }
 
   if (btn) { btn.textContent = '🎙'; btn.title = 'Record again'; btn.disabled = false; }
@@ -1013,7 +1171,7 @@ function downsampleBuffer(buffer, inputRate, outputRate) {
 async function azurePronunciationAssess(wavBlob, referenceText) {
   const credentials = await getSpeechCredentials();
   if (!credentials.region || (!credentials.token && !credentials.key)) {
-    throw new Error('Azure Speech 凭证未配置。');
+    throw new Error('Azure Speech credentials are not configured.');
   }
 
   const pronunciationAssessmentConfig = JSON.stringify({
@@ -1051,7 +1209,7 @@ async function azurePronunciationAssess(wavBlob, referenceText) {
   // Parse per-word scores from Azure response
   const nBest = data.NBest?.[0];
   if (!nBest) {
-    throw new Error(`Azure 没有返回识别结果：${data.RecognitionStatus || 'Unknown status'}`);
+    throw new Error(`Azure returned no recognition result: ${data.RecognitionStatus || 'Unknown status'}`);
   }
 
   const refWords = referenceText.replace(/[.!?,;:]/g,'').split(' ').filter(w=>w);
@@ -1063,7 +1221,7 @@ async function azurePronunciationAssess(wavBlob, referenceText) {
       const fallback = fallbackScoreFromRecognizedText(refWords, recognizedText);
       return {
         ...fallback,
-        debug: `Azure 返回了识别文本，但没有返回逐词评分。识别文本：${recognizedText}`
+        debug: `Azure returned recognized text without word-level scores. Transcript: ${recognizedText}`
       };
     }
 
@@ -1071,7 +1229,7 @@ async function azurePronunciationAssess(wavBlob, referenceText) {
       words: refWords,
       wordScores: refWords.map(() => 'missed'),
       overall: 0,
-      debug: `Azure 没有识别到有效语音。RecognitionStatus: ${data.RecognitionStatus || 'Unknown'}`
+      debug: `Azure did not recognize valid speech. RecognitionStatus: ${data.RecognitionStatus || 'Unknown'}`
     };
   }
 
@@ -1102,7 +1260,7 @@ async function azurePronunciationAssess(wavBlob, referenceText) {
     words: refWords,
     wordScores: wordScores.some(score => score !== 'missed') ? wordScores : textFallback.wordScores,
     overall,
-    debug: `Azure: ${data.RecognitionStatus || 'Success'}；识别文本：${recognizedText || '—'}`
+    debug: `Azure: ${data.RecognitionStatus || 'Success'}; transcript: ${recognizedText || '—'}`
   };
 }
 
@@ -1288,8 +1446,13 @@ function closeWordModal() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeWordModal();
+  if (e.key === 'Escape') {
+    closeWordModal();
+    closeAuthModal();
+  }
 });
+
+document.getElementById('auth-form').addEventListener('submit', submitAuth);
 
 document.getElementById('sentences-container').addEventListener('click', event => {
   const word = event.target.closest('.word-token');
@@ -1320,9 +1483,15 @@ if (window.location.hash === '#practice') {
   openPractice();
 }
 
+initializeAccount();
+
 Object.assign(window, {
   openPractice,
   showHome,
+  openAuthModal,
+  closeAuthModal,
+  switchAuthMode,
+  signOut,
   processText,
   loadSample,
   speakSentence,
